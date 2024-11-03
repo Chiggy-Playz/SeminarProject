@@ -310,7 +310,7 @@ def add_prediction_section():
 
 def main():
     st.title("Customer Analytics Dashboard")
-    tab1, tab2 = st.tabs(["Customer Predictions", "Customer Segmentation"])
+    tab1, tab2 = st.tabs(["Customer Segmentation", "Customer Predictions"])
     
     with tab1:
         add_segmentation_section()
