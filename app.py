@@ -10,7 +10,6 @@ from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
 
 
-
 try:
     data = pd.read_csv("dataset.csv")
 except FileNotFoundError:
@@ -314,10 +313,11 @@ def main():
     tab1, tab2 = st.tabs(["Customer Predictions", "Customer Segmentation"])
     
     with tab1:
-        add_prediction_section()
+        add_segmentation_section()
     
     with tab2:
-        add_segmentation_section()
+        add_prediction_section()
 
 if __name__ == "__main__":
+    st.set_page_config(page_title="Customer Analytics")
     main()
