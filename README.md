@@ -37,4 +37,3 @@ First we will explore the dataset to understand the data and identify any patter
 ![Screenshot2](images/2.png)
 ![Screenshot3](images/3.png)
 ![Screenshot4](images/4.png)
-![Screenshot5](images/5.jpg)
