@@ -37,3 +37,14 @@ First we will explore the dataset to understand the data and identify any patter
 ![Screenshot2](images/2.png)
 ![Screenshot3](images/3.png)
 ![Screenshot4](images/4.png)
+
+
+## Running
+Steps:
+1. Clone the repository
+2. Install the required libraries using `pip install -r requirements.txt`
+3. For EDA, check out the EDA.ipynb
+4. Then run the streamlit app using `streamlit run app.py`
+5. The app will open in your default browser
+
+You can also check out a pre-deployed version of this app [here](https://chiggy-seminar.streamlit.app/)
