@@ -1,3 +1,4 @@
+from matplotlib.patches import Rectangle
 import pandas as pd
 import plotly.express as px
 import streamlit as st
@@ -8,7 +9,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
-
+from matplotlib import pyplot as plt
+import seaborn as sns
 
 try:
     data = pd.read_csv("dataset.csv")
@@ -17,7 +19,9 @@ except FileNotFoundError:
     exit()
 
 RANDOM_STATE = 42
-
+COLORS = ["#89CFF0", "#FF69B4", "#FFD700", "#7B68EE", "#FF4500",
+          "#9370DB", "#32CD32", "#8A2BE2", "#FF6347", "#20B2AA",
+          "#FF69B4", "#00CED1", "#FF7F50", "#7FFF00", "#DA70D6"]
 class MultiModelRecommender:
     def __init__(self):
         self.label_encoders = {}
@@ -69,13 +73,13 @@ class MultiModelRecommender:
         for target in self.target_columns:
             
             if selected_model == 'Random Forest':
-                self.target_models[target] = RandomForestClassifier(n_estimators=100, random_state=RANDOM_STATE)
+                self.target_models[target] = RandomForestClassifier(n_estimators=100, random_state=42)
             elif selected_model == 'KNN':
                 self.target_models[target] = KNeighborsClassifier(n_neighbors=5)
             elif selected_model == 'SVC':
-                self.target_models[target] = SVC(probability=True, random_state=RANDOM_STATE)
+                self.target_models[target] = SVC(probability=True, random_state=42)
             else:  
-                self.target_models[target] = LogisticRegression(random_state=RANDOM_STATE, max_iter=1000)
+                self.target_models[target] = LogisticRegression(random_state=42, max_iter=1000)
                 
             self.target_models[target].fit(X, processed_df[target])
     
@@ -99,7 +103,7 @@ class MultiModelRecommender:
             pred_with_probs = [(classes[i], prob) for i, prob in enumerate(pred_probs)]
             pred_with_probs.sort(key=lambda x: x[1], reverse=True)
             
-            predictions[target] = pred_with_probs[:5    ]
+            predictions[target] = pred_with_probs[:5]
         
         return predictions
 
@@ -140,7 +144,7 @@ class CustomerSegmentation:
         inertias = []
         
         for k in range(1, max_clusters + 1):
-            kmeans = KMeans(n_clusters=k, random_state=RANDOM_STATE)
+            kmeans = KMeans(n_clusters=k, random_state=42)
             kmeans.fit(data)
             inertias.append(kmeans.inertia_)
         
@@ -148,10 +152,10 @@ class CustomerSegmentation:
     
     def fit(self, df, n_clusters):
         """Perform clustering"""
-        scaled_features, processed_df = self.preprocess_data(df)        
-        self.kmeans = KMeans(n_clusters=n_clusters, random_state=RANDOM_STATE)
-        clusters = self.kmeans.fit_predict(scaled_features)      
-        df['Cluster'] = clusters       
+        scaled_features, processed_df = self.preprocess_data(df)
+        self.kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        clusters = self.kmeans.fit_predict(scaled_features)
+        df['Cluster'] = clusters
         pca_features = self.pca.fit_transform(scaled_features)
         return df, pca_features
     
@@ -185,27 +189,12 @@ def add_segmentation_section():
     n_clusters = st.sidebar.slider("Number of Customer Segments", 2, 8, 4)
     df_with_clusters, pca_features = segmentation.fit(data, n_clusters)
     insights = segmentation.get_cluster_insights(df_with_clusters)
-    tab1, tab2, tab3 = st.tabs(["Cluster Visualization", "Segment Profiles", "Detailed Analysis"])
+    tab1, tab2 = st.tabs(["Segment Profiles", "Detailed Analysis"])
     
-    with tab1:    
-        fig = px.scatter(
-            x=pca_features[:, 0],
-            y=pca_features[:, 1],
-            color=df_with_clusters['Cluster'].astype(str),
-            title="Customer Segments Visualization",
-            labels={'x': 'First Principal Component', 'y': 'Second Principal Component'}
-        )
-        st.plotly_chart(fig)
-        
-        st.info("""
-        This plot shows customer segments in 2D space. Closer points represent customers with similar characteristics.
-        Each color represents a different customer segment.
-        """)
-    
-    with tab2:
+    with tab1:
         for cluster in sorted(insights.keys()):
             with st.expander(f"Segment {cluster + 1} Profile"):
-                col1, col2 = st.columns(2)                
+                col1, col2 = st.columns(2)      
                 with col1:
                     st.write("📊 **Basic Statistics**")
                     st.write(f"Segment Size: {insights[cluster]['size']} customers")
@@ -219,7 +208,7 @@ def add_segmentation_section():
                     st.write(f"Purchase Frequency: {insights[cluster]['purchase_frequency']}")
                     st.write(f"Payment Method: {insights[cluster]['preferred_payment']}")
     
-    with tab3:        
+    with tab2:        
         col1, col2 = st.columns(2)        
         with col1:            
             fig_age = px.box(df_with_clusters, x='Cluster', y='Age', 
@@ -306,17 +295,347 @@ def add_prediction_section():
                     st.subheader(f"{target}")
                     for pred, prob in predictions[target]:
                         st.write(f"• {pred} ({prob:.1%} confidence)")
-                        
+
+
+def add_exploratory_data_analysis_section():
+    st.header("🔍 Exploratory Data Analysis")
+    
+    st.write("This section provides an overview of the dataset.")
+    
+    st.subheader("Dataset Overview")
+    st.write(data.head())
+    
+    st.subheader("Dataset Shape")
+    st.write(data.shape)
+
+    st.subheader("Descriptive Statistics")
+
+    st.write(data.describe())
+
+    st.subheader("Data Visualization")
+    st.write("Visualizing the dataset using various plots.")
+
+    # SNS Pairplot
+    st.subheader("Pairplot")
+    fig = plt.figure(figsize=(16, 10))
+    sns.pairplot(data)
+    st.pyplot(fig)
+
+    st.write("---")
+
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Gender Distribution (Bar Chart)")
+        fig_bar = plt.figure(figsize=(10, 6))
+        ax = data["Gender"].value_counts().plot(kind='bar', color=COLORS, rot=0)
+        ax.set_xticklabels(('Male', 'Female'))
+        for p in ax.patches:
+            assert isinstance(p, Rectangle)
+            ax.annotate(str(p.get_height()), (p.get_x() + 0.25, p.get_height() + 1), ha='center', va='bottom', color='black')
+        plt.xlabel('Gender', weight="bold", fontsize=14, labelpad=20)
+        plt.ylabel('Number of Occurrences', weight="bold", fontsize=14, labelpad=20)
+        st.pyplot(fig_bar)
+    
+    with col2:
+        st.subheader("Gender Distribution (Pie Chart)")
+        fig_pie = plt.figure(figsize=(20, 6))
+        counts = data["Gender"].value_counts()
+        explode = (0, 0.1)
+        counts.plot(kind='pie', fontsize=12, colors=COLORS, explode=explode, autopct='%1.1f%%')
+        plt.xlabel('Gender', weight="bold", color="#2F0F5D", fontsize=14, labelpad=20)
+        plt.axis('equal')
+        plt.legend(labels=counts.index, loc="best")
+        st.pyplot(fig_pie)
+    
+    st.write("---")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("Category Distribution (Bar Chart)")
+        fig_bar = plt.figure(figsize=(10, 6))
+        ax = data["Category"].value_counts().plot(kind='bar', color=COLORS, rot=0)
+        ax.set_xticklabels(('Clothing', 'Accessories', 'Footwear', 'Outerwear'))
+        for p in ax.patches:
+            assert isinstance(p, Rectangle)
+            ax.annotate(str(p.get_height()), (p.get_x() + 0.25, p.get_height()), ha='center', va='bottom', color='black')
+        plt.xlabel('Category', weight="bold", fontsize=14, labelpad=20)
+        plt.ylabel('Number of Occurrences', weight="bold", fontsize=14, labelpad=20)
+        st.pyplot(fig_bar)
+    
+    with col2:
+        st.subheader("Category Distribution (Pie Chart)")
+        fig_pie = plt.figure(figsize=(20, 6))
+        counts = data["Category"].value_counts()
+        explode = (0, 0.0, 0.0, 0.1)
+        counts.plot(kind='pie', fontsize=12, colors=COLORS, explode=explode, autopct='%1.1f%%')
+        plt.xlabel('Category', weight="bold", color="#2F0F5D", fontsize=14, labelpad=20)
+        plt.axis('equal')
+        plt.legend(labels=counts.index, loc="best")
+        st.pyplot(fig_pie)
+
+    st.write("---")
+
+    st.subheader("Item Purchased Distribution")
+
+    fig = plt.figure(figsize=(16, 7))
+    data["Item Purchased"].value_counts().sort_values(ascending=True).plot(kind='barh', color=sns.color_palette('tab20'), edgecolor='black')
+    plt.ylabel('Item Purchased', fontsize=16)
+    plt.xlabel('\nNumber of Occurrences', fontsize=16)
+    plt.title('Item Purchased\n', fontsize=16)
+    plt.xticks(rotation=0, ha='center', fontsize=16)
+    plt.tight_layout()
+    st.pyplot(fig)
+
+    st.write("---")
+
+    st.subheader("Location Distribution")
+
+    fig = plt.figure(figsize=(16, 6))
+    data["Location"].value_counts()[:10].sort_values(ascending=False).plot(kind='bar', color=sns.color_palette('inferno'), edgecolor='black')
+    plt.xlabel('Location', weight="bold", fontsize=14, labelpad=20)
+    plt.ylabel('Number of Occurrences', weight="bold", fontsize=14, labelpad=20)
+    plt.xticks(rotation=0, ha='center', fontsize=16)
+    plt.tight_layout()
+    st.pyplot(fig)
+
+    st.write("---")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("Size Distribution (Bar Chart)")
+        fig_bar = plt.figure(figsize=(10, 6))
+        ax = data["Size"].value_counts().plot(kind='bar', color=COLORS, rot=0)
+        ax.set_xticklabels(('Medium', 'Large', 'Small', 'Extra Large'))
+        for p in ax.patches:
+            assert isinstance(p, Rectangle)
+            ax.annotate(str(p.get_height()), (p.get_x() + 0.25, p.get_height() + 1), ha='center', va='bottom', color='black')
+        plt.xlabel('Size', weight="bold", fontsize=14, labelpad=20)
+        plt.ylabel('Number of Occurrences', weight="bold", fontsize=14, labelpad=20)
+        st.pyplot(fig_bar)
+
+    with col2:
+        st.subheader("Size Distribution (Pie Chart)")
+        fig_pie = plt.figure(figsize=(20, 6))
+        counts = data["Category"].value_counts()
+        explode = (0, 0.0, 0.0, 0.1)
+        counts.plot(kind='pie', fontsize=12, colors=COLORS, explode=explode, autopct='%1.1f%%')
+        plt.xlabel('Size', weight="bold", color="#2F0F5D", fontsize=14, labelpad=20)
+        plt.axis('equal')
+        st.pyplot(fig_pie)
+    
+    st.write("---")
+
+    st.subheader("Color Distribution")
+
+    fig = plt.figure(figsize=(16, 6))
+    data["Color"].value_counts().sort_values(ascending=True).plot(kind='barh', color=sns.color_palette('tab20'), edgecolor='black')
+    plt.xlabel('Color', weight="bold", fontsize=14, labelpad=20)
+    plt.ylabel('Number of Occurrences', weight="bold", fontsize=14, labelpad=20)
+    plt.xticks(rotation=0, ha='center', fontsize=16)
+    plt.tight_layout()
+    st.pyplot(fig)
+
+    st.write("---")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("Season Distribution (Bar Chart)")
+        fig_bar = plt.figure(figsize=(10, 6))
+        ax = data["Season"].value_counts().plot(kind='bar', color=COLORS, rot=0)
+        ax.set_xticklabels(('Spring', 'Fall', 'Winter', 'Summer'))
+        for p in ax.patches:
+            assert isinstance(p, Rectangle)
+            ax.annotate(str(p.get_height()), (p.get_x() + 0.25, p.get_height() + 1), ha='center', va='bottom', color='black')
+        plt.xlabel('Season', weight="bold", fontsize=14, labelpad=20)
+        plt.ylabel('Number of Occurrences', weight="bold", fontsize=14, labelpad=20)
+        st.pyplot(fig_bar)  
+    
+    with col2:
+        st.subheader("Season Distribution (Pie Chart)")
+        fig_pie = plt.figure(figsize=(20, 6))
+        counts = data["Season"].value_counts()
+        explode = (0, 0, 0, 0)
+        counts.plot(kind='pie', fontsize=12, colors=COLORS, explode=explode, autopct='%1.1f%%')
+        plt.xlabel('Season', weight="bold", color="#2F0F5D", fontsize=14, labelpad=20)
+        plt.axis('equal')
+        st.pyplot(fig_pie)
+    
+    st.write("---")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("Subscription Status Distribution (Bar Chart)")
+        fig_bar = plt.figure(figsize=(10, 6))
+        ax = data["Subscription Status"].value_counts().plot(kind='bar', color=COLORS, rot=0)
+        ax.set_xticklabels(('No', 'Yes'))
+        for p in ax.patches:
+            assert isinstance(p, Rectangle)
+            ax.annotate(str(p.get_height()), (p.get_x() + 0.25, p.get_height() + 1), ha='center', va='bottom', color='black')
+        plt.xlabel('Subscription Status', weight="bold", fontsize=14, labelpad=20)
+        plt.ylabel('Number of Occurrences', weight="bold", fontsize=14, labelpad=20)
+        st.pyplot(fig_bar)
+    
+    with col2:
+        st.subheader("Subscription Status Distribution (Pie Chart)")
+        fig_pie = plt.figure(figsize=(20, 6))
+        counts = data["Subscription Status"].value_counts()
+        explode = (0, 0.1)
+        counts.plot(kind='pie', fontsize=12, colors=COLORS, explode=explode, autopct='%1.1f%%')
+        plt.xlabel('Subscription Status', weight="bold", color="#2F0F5D", fontsize=14, labelpad=20)
+        plt.axis('equal')
+        st.pyplot(fig_pie)
+    
+    st.write("---")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("Payment Method Distribution (Bar Chart)")
+        fig_bar = plt.figure(figsize=(10, 6))
+        ax = data["Payment Method"].value_counts().plot(kind='bar', color=COLORS, rot=0)
+        ax.set_xticklabels(('Credit Card', 'Venmo', 'Cash', 'Paypal', 'Debit Card', 'Bank Transfer'))
+        for p in ax.patches:
+            assert isinstance(p, Rectangle)
+            ax.annotate(str(p.get_height()), (p.get_x() + 0.25, p.get_height() + 1), ha='center', va='bottom', color='black')
+        plt.xlabel('Payment Method', weight="bold", fontsize=14, labelpad=20)
+        plt.ylabel('Number of Occurrences', weight="bold", fontsize=14, labelpad=20)
+        st.pyplot(fig_bar)
+
+    with col2:
+        st.subheader("Payment Method Distribution (Pie Chart)")
+        fig_pie = plt.figure(figsize=(20, 6))
+        counts = data["Payment Method"].value_counts()
+        explode = (0, 0, 0, 0, 0.0, 0.06)
+        counts.plot(kind='pie', fontsize=12, colors=COLORS, explode=explode, autopct='%1.1f%%')
+        plt.xlabel('Payment Method', weight="bold", color="#2F0F5D", fontsize=14, labelpad=20)
+        plt.axis('equal')
+        st.pyplot(fig_pie)
+    
+    st.write("---")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("Shipping Type Distribution (Bar Chart)")
+        fig_bar = plt.figure(figsize=(10, 6))
+        ax = data["Shipping Type"].value_counts().plot(kind='bar', color=COLORS, rot=0)
+        ax.set_xticklabels(('Free Shipping', 'Standard', 'Store Pickup', 'Next Day Air', 'Express', '2-Day Shipping'))
+        for p in ax.patches:
+            assert isinstance(p, Rectangle)
+            ax.annotate(str(p.get_height()), (p.get_x() + 0.25, p.get_height() + 1), ha='center', va='bottom', color='black')
+        plt.xlabel('Shipping Type', weight="bold", fontsize=14, labelpad=20)
+        plt.ylabel('Number of Occurrences', weight="bold", fontsize=14, labelpad=20)
+        st.pyplot(fig_bar)
+    
+    with col2:
+        st.subheader("Shipping Type Distribution (Pie Chart)")
+        fig_pie = plt.figure(figsize=(20, 6))
+        counts = data["Shipping Type"].value_counts()
+        explode = (0, 0, 0, 0, 0.0, 0.06)
+        counts.plot(kind='pie', fontsize=12, colors=COLORS, explode=explode, autopct='%1.1f%%')
+        plt.xlabel('Shipping Type', weight="bold", color="#2F0F5D", fontsize=14, labelpad=20)
+        plt.axis('equal')
+        st.pyplot(fig_pie)
+    
+    st.write("---")
+
+    st.subheader("Frequency of Purchases Distribution")
+
+    fig = plt.figure(figsize=(16, 6))
+    data["Frequency of Purchases"].value_counts().sort_values(ascending=True).plot(kind='bar', color=sns.color_palette('tab20'), edgecolor='black')
+    plt.xlabel('Frequency of Purchases', weight="bold", fontsize=14, labelpad=20)
+    plt.ylabel('Number of Occurrences', weight="bold", fontsize=14, labelpad=20)
+    plt.xticks(rotation=0, ha='center', fontsize=16)
+    plt.tight_layout()
+    st.pyplot(fig)
+
+    st.write("---")
+
+    st.subheader("Review Rating Distribution")
+
+    fig = plt.figure(figsize=(16, 6))
+    data["Review Rating"].value_counts().sort_values(ascending=True).plot(kind='bar', color=sns.color_palette('tab20'), edgecolor='black')
+    plt.xlabel('Review Rating', weight="bold", fontsize=14, labelpad=20)
+    plt.ylabel('Number of Occurrences', weight="bold", fontsize=14, labelpad=20)
+    plt.xticks(rotation=0, ha='center', fontsize=16)
+    plt.tight_layout()
+    st.pyplot(fig)
+
+    st.write("---")
+
+    st.subheader("Promo Code Used Distribution")
+
+    fig = plt.figure(figsize=(16, 6))
+    data["Promo Code Used"].value_counts().sort_values(ascending=True).plot(kind='bar', color=sns.color_palette('tab20'), edgecolor='black')
+    plt.xlabel('Promo Code Used', weight="bold", fontsize=14, labelpad=20)
+    plt.ylabel('Number of Occurrences', weight="bold", fontsize=14, labelpad=20)
+    plt.xticks(rotation=0, ha='center', fontsize=16)
+    plt.tight_layout()
+    st.pyplot(fig)
+
+    st.write("---")
+
+    st.subheader("Discount Applied Distribution")
+
+    fig = plt.figure(figsize=(16, 6))
+    data["Discount Applied"].value_counts().sort_values(ascending=True).plot(kind='bar', color=sns.color_palette('tab20'), edgecolor='black')
+    plt.xlabel('Discount Applied', weight="bold", fontsize=14, labelpad=20)
+    plt.ylabel('Number of Occurrences', weight="bold", fontsize=14, labelpad=20)
+    st.pyplot(fig)
+
+    st.write("---")
+
+    st.subheader("Previous Purchases Distribution")
+
+    fig = plt.figure(figsize=(16, 6))
+    data["Previous Purchases"].value_counts().sort_values(ascending=True).plot(kind='bar', color=sns.color_palette('tab20'), edgecolor='black')
+    plt.xlabel('Previous Purchases', weight="bold", fontsize=14, labelpad=20)
+    plt.ylabel('Number of Occurrences', weight="bold", fontsize=14, labelpad=20)
+    plt.xticks(rotation=0, ha='center', fontsize=16)
+    st.pyplot(fig)
+
+    st.write("---")
+
+    st.subheader("Age Distribution")
+
+    fig = plt.figure(figsize=(16, 6))
+    data["Age"].value_counts().sort_values(ascending=True).plot(kind='bar', color=sns.color_palette('tab20'), edgecolor='black')
+    plt.xlabel('Age', weight="bold", fontsize=14, labelpad=20)
+    plt.ylabel('Number of Occurrences', weight="bold", fontsize=14, labelpad=20)
+    plt.xticks(rotation=0, ha='center', fontsize=16)
+    plt.tight_layout()
+    st.pyplot(fig)
+
+    st.write("---")
+
+    st.subheader("Purchase Amount Distribution")
+
+    fig = plt.figure(figsize=(16, 6))
+    data["Purchase Amount (USD)"].value_counts().sort_values(ascending=True).plot(kind='bar', color=sns.color_palette('tab20'), edgecolor='black')
+    plt.xlabel('Purchase Amount (USD)', weight="bold", fontsize=14, labelpad=20)
+    plt.ylabel('Number of Occurrences', weight="bold", fontsize=14, labelpad=20)
+    plt.xticks(rotation=0, ha='center', fontsize=16)
+    plt.tight_layout()
+    st.pyplot(fig)
+
 
 def main():
     st.title("Customer Analytics Dashboard")
-    tab1, tab2 = st.tabs(["Customer Segmentation", "Customer Predictions"])
+    tab1, tab2, tab3 = st.tabs(["Customer Segmentation", "Customer Predictions", "Exploratory Data Analysis"])
     
     with tab1:
         add_segmentation_section()
     
     with tab2:
         add_prediction_section()
+
+    with tab3:
+        add_exploratory_data_analysis_section()
 
 if __name__ == "__main__":
     st.set_page_config(page_title="Customer Analytics")
