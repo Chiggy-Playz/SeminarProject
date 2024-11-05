@@ -69,13 +69,13 @@ class MultiModelRecommender:
         for target in self.target_columns:
             
             if selected_model == 'Random Forest':
-                self.target_models[target] = RandomForestClassifier(n_estimators=100, random_state=42)
+                self.target_models[target] = RandomForestClassifier(n_estimators=100, random_state=RANDOM_STATE)
             elif selected_model == 'KNN':
                 self.target_models[target] = KNeighborsClassifier(n_neighbors=5)
             elif selected_model == 'SVC':
-                self.target_models[target] = SVC(probability=True, random_state=42)
+                self.target_models[target] = SVC(probability=True, random_state=RANDOM_STATE)
             else:  
-                self.target_models[target] = LogisticRegression(random_state=42, max_iter=1000)
+                self.target_models[target] = LogisticRegression(random_state=RANDOM_STATE, max_iter=1000)
                 
             self.target_models[target].fit(X, processed_df[target])
     
@@ -140,7 +140,7 @@ class CustomerSegmentation:
         inertias = []
         
         for k in range(1, max_clusters + 1):
-            kmeans = KMeans(n_clusters=k, random_state=42)
+            kmeans = KMeans(n_clusters=k, random_state=RANDOM_STATE)
             kmeans.fit(data)
             inertias.append(kmeans.inertia_)
         
@@ -149,7 +149,7 @@ class CustomerSegmentation:
     def fit(self, df, n_clusters):
         """Perform clustering"""
         scaled_features, processed_df = self.preprocess_data(df)        
-        self.kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        self.kmeans = KMeans(n_clusters=n_clusters, random_state=RANDOM_STATE)
         clusters = self.kmeans.fit_predict(scaled_features)      
         df['Cluster'] = clusters       
         pca_features = self.pca.fit_transform(scaled_features)
